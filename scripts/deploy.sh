@@ -15,7 +15,11 @@ cleos set contract eosio.token include/eosio.token eosio.token.wasm eosio.token.
 
 # permission
 cleos set account permission proxy.sx active --add-code
-cleos set account permission flash.sx active proxy.sx --add-code
+cleos set account permission flash.sx proxy proxy.sx --add-code
+cleos set action permission flash.sx eosio sellrex proxy
+cleos set action permission flash.sx eosio buyrex proxy
+cleos set action permission flash.sx eosio withdraw proxy
+cleos set action permission flash.sx eosio deposit proxy
 
 # create EOS token
 cleos push action eosio.token create '["eosio", "100000000.0000 EOS"]' -p eosio.token

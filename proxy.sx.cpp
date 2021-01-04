@@ -2,18 +2,10 @@
 #include <eosio.system/eosio.system.hpp>
 
 #include "proxy.sx.hpp"
-
-// [[eosio::action]]
-// void sx::proxy::sell( const permission_level account, const extended_symbol token )
-// {
-//     if ( !has_auth( get_self() )) require_auth( account.actor );
-
-//     const asset balance = eosio::token::get_balance( token.get_contract(), account.actor, token.get_symbol().code() );
-//     transfer( account, "gateway.sx"_n, { balance.amount, token }, "EOS");
-// }
+#include <cmath>
 
 [[eosio::action]]
-void sx::proxy::buy( const permission_level account, const asset amount )
+void sx::proxy::buyrex( const permission_level account, const asset amount )
 {
     if ( !has_auth( get_self() )) require_auth( account.actor );
     eosio_system::deposit_action deposit( "eosio"_n, account );
@@ -23,47 +15,50 @@ void sx::proxy::buy( const permission_level account, const asset amount )
     buyrex.send( account.actor, amount );
 }
 
-// [[eosio::action]]
-// void sx::proxy::dustall()
-// {
-//     require_auth( get_self() );
+[[eosio::action]]
+void sx::proxy::sellrex( const permission_level account, const asset amount )
+{
+    if ( !has_auth( get_self() )) require_auth( account.actor );
+    eosio_system::sellrex_action sellrex( "eosio"_n, account );
+    sx::proxy::withdraw_action withdraw( get_self(), { get_self(), "active"_n} );
 
-//     // tables
-//     sx::proxy::settings_table _settings( get_self(), get_self().value );
-//             const auto& ac = accountstable.get( sym_code.raw() );
-//     auto settings = _settings.get();
-//     bool is_dust = false;
+    check( amount.symbol == symbol{"EOS", 4}, "amount must be 4,EOS");
 
-//     for ( permission_level account : settings.accounts ) {
-//         for ( extended_symbol token : settings.tokens ) {
-//             const name contract = token.get_contract();
-//             eosio::token::accounts _accounts( contract, owner.value );
-//             auto itr = _accounts.find( token.get_symbol().code().raw() );
+    // calculate REX amount by converted EOS
+    const asset rex = { static_cast<int64_t>( ceil(get_rex() * amount.amount) ), {"REX", 4}};
 
-//             const asset balance = eosio::token::get_balance( contract, account.actor, token.get_symbol().code() );
-//             if ( balance.amount > 0 ) {
-//                 transfer( account, "gateway.sx"_n, { balance.amount, token }, "EOS");
-//                 is_dust = true;
-//             }
-//         }
-//     }
-//     check( is_dust, "nothing to dust");
-// }
+    sellrex.send( account.actor, rex );
+    withdraw.send( account );
+}
 
-// [[eosio::action]]
-// void sx::proxy::setsettings( const set<permission_level> accounts, const vector<extended_symbol> tokens )
-// {
-//     require_auth( get_self() );
+[[eosio::action]]
+void sx::proxy::withdraw( const permission_level account )
+{
+    if ( !has_auth( get_self() )) require_auth( account.actor );
 
-//     sx::proxy::settings_table _settings( get_self(), get_self().value );
-//     auto settings = _settings.get_or_default();
-//     settings.accounts = accounts;
-//     settings.tokens = tokens;
-//     _settings.set( settings, get_self() );
-// }
+    // get remaining EOS balance from `eosio::rexfund`
+    eosio_system::rex_fund_table _rexfund( "eosio"_n, "eosio"_n.value );
+    const asset balance = _rexfund.get( account.actor.value, "account does not exists in `rexfund`").balance;
 
-// void sx::proxy::transfer( const permission_level from, const name to, const extended_asset value, const string memo )
-// {
-//     eosio::token::transfer_action transfer( value.contract, from );
-//     transfer.send( from.actor, to, value.quantity, memo );
-// }
+    // withdraw full amount
+    eosio_system::withdraw_action withdraw( "eosio"_n, account );
+    withdraw.send( account.actor, balance );
+}
+
+[[eosio::action]]
+void sx::proxy::vote( const permission_level account, const name proxy  )
+{
+    if ( !has_auth( get_self() )) require_auth( account.actor );
+    eosio_system::voteproducer_action voteproducer( "eosio"_n, account );
+
+    std::vector<eosio::name> producers;
+    voteproducer.send( account.actor, proxy, producers );
+}
+
+double sx::proxy::get_rex()
+{
+    eosio_system::rex_pool_table rex_pool( "eosio"_n, "eosio"_n.value );
+    auto itr = rex_pool.find(0);
+    if ( itr == rex_pool.end() ) return 10000; // localhost for TESTING purposes
+    return static_cast<double>(itr->total_rex.amount) / itr->total_lendable.amount;
+}

@@ -122,15 +122,25 @@ public:
     // void setsettings( const set<permission_level> accounts, const vector<extended_symbol> tokens );
 
     [[eosio::action]]
-    void buy( const permission_level account, const asset amount );
+    void buyrex( const permission_level account, const asset amount );
 
-    // // static actions
-    // using harvest_action = eosio::action_wrapper<"harvest"_n, &sx::dust::harvest>;
-    // using sell_action = eosio::action_wrapper<"sell"_n, &sx::dust::sell>;
-    // using dustall_action = eosio::action_wrapper<"dustall"_n, &sx::dust::dustall>;
-    // using setsettings_action = eosio::action_wrapper<"setsettings"_n, &sx::dust::setsettings>;
+    [[eosio::action]]
+    void withdraw( const permission_level account );
+
+    [[eosio::action]]
+    void sellrex( const permission_level account, const asset amount );
+
+    [[eosio::action]]
+    void vote( const permission_level account, const name proxy );
+
+    // static actions
+    using buyrex_action = eosio::action_wrapper<"buyrex"_n, &sx::proxy::buyrex>;
+    using sellrex_action = eosio::action_wrapper<"sellrex"_n, &sx::proxy::sellrex>;
+    using vote_action = eosio::action_wrapper<"vote"_n, &sx::proxy::vote>;
+    using withdraw_action = eosio::action_wrapper<"withdraw"_n, &sx::proxy::withdraw>;
 
 private:
+    double get_rex();
     // // eosio.token helper
     // void transfer( const permission_level from, const name to, const extended_asset quantity, const string memo );
 };
